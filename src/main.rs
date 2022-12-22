@@ -1,8 +1,8 @@
 mod note;
 
+use std::sync::mpsc::{channel, Receiver};
 use std::thread::sleep;
 use std::time::Duration;
-use std::sync::mpsc::{channel, Receiver};
 
 use midly::live::LiveEvent;
 use midly::MidiMessage;
@@ -85,7 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        const TRIES: u64 = 10u64;
+        const TRIES: u64 = 0u64;
         let mut successes = 0;
         for _ in 0..TRIES {
 
@@ -102,22 +102,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let guess = read_note();
             if u8::from(guess) == note.midi() {
-                println!("success!");
                 successes += 1;
-            } else {
-                println!("failed!");
             }
 
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
-        let stats_file = std::fs::OpenOptions::new().append(true).create(true).open("log.csv").unwrap();
+        let home_dir = home::home_dir().ok_or("cannot find home directory")?;
+        let stats_dir = home_dir.join(".simon");
+        std::fs::create_dir_all(&stats_dir)?;
+        let stats_file = std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(stats_dir.join("log.csv"))?;
         let mut csv_writer = csv::Writer::from_writer(stats_file);
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        csv_writer.serialize(&[timestamp, TRIES, successes]).unwrap();
+        csv_writer.serialize(&[timestamp, TRIES, successes])?;
 
         println!("{} / {}", successes, TRIES);
     }
