@@ -2,7 +2,13 @@ use rand::Rng;
 use rand::seq::SliceRandom;
 use rand::distributions::{Distribution, Standard};
 
-const MIDDLE_OCTAVE = 4
+pub const MIDDLE_OCTAVE: u8 = 4;
+
+// struct major key
+// contains tonal center (enharmonic notes merged, because this is a listening test)
+// function that generates a random note, in the key, in some range
+//   (should the range be specified in notes, octaves, ??)
+// function that returns the name of the key (ideally in a filename-friendly format)
 
 // a simple abstraction over midi events: notes with duration are an easier structure to work with
 // than midi note-on and note-off events
@@ -24,7 +30,7 @@ impl Pitch {
 }
 
 // TODO something better for accidentals
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum PitchClass {
     C = 0,
     D = 2,
