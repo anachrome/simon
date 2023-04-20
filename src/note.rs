@@ -2,6 +2,8 @@ use rand::Rng;
 use rand::seq::SliceRandom;
 use rand::distributions::{Distribution, Standard};
 
+const MIDDLE_OCTAVE = 4
+
 // a simple abstraction over midi events: notes with duration are an easier structure to work with
 // than midi note-on and note-off events
 pub struct Note {

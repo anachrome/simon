@@ -51,16 +51,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // main loop
     //
 
+    use note::PitchClass::*;
     let game = SingleNoteGame {
+        key: C,
         min_octave: 3,
         max_octave: 5,
     };
 
-    // TODO: fetch from game
-    let tonic = note::Pitch::new(note::PitchClass::C, 4);
-
     note::Note {
-        pitch: tonic,
+        pitch: note::Pitch::new(game.key, note::MIDDLE_OCTAVE),
         velocity: 64.into(),
         duration: std::time::Duration::from_millis(500u64),
     }.play_on(&mut conn_out);
@@ -121,6 +120,7 @@ trait Playable {
 trait Game {
     type Phrase: Playable;
 
+    const fn key(&self) -> note::PitchClass
     fn filename(&self) -> String;
     // TODO: introductory + intermission cadences etc.
     fn gen_phrase(&self) -> Self::Phrase;
@@ -180,12 +180,17 @@ impl Playable for note::Note {
 }
 
 struct SingleNoteGame {
+    key: note::PitchClass,
     min_octave: u8,
     max_octave: u8,
 }
 
 impl Game for SingleNoteGame {
     type Phrase = note::Note;
+
+    fn key(&self) -> note::PitchClass {
+        self.key
+    }
 
     fn filename(&self) -> String {
         format!{"single-note-c-major-{}-octaves.csv", self.max_octave - self.min_octave}
