@@ -2,18 +2,26 @@ use rand::Rng;
 use rand::seq::SliceRandom;
 use rand::distributions::{Distribution, Standard};
 
+// a simple abstraction over midi events: notes with duration are an easier structure to work with
+// than midi note-on and note-off events
+pub struct Note {
+    pub pitch: Pitch,
+    pub velocity: midly::num::u7,
+    pub duration: std::time::Duration,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Pitch {
-    pub pitch_class: PitchClass,
-    pub octave: u8,
+    pub midi: u8
 }
 
 impl Pitch {
-    pub fn midi(&self) -> u8 {
-        // C4 -> 60
-        (12 * (self.octave + 1)) + self.pitch_class as u8
+    pub fn new(pitch_class: PitchClass, octave: u8) -> Pitch {
+        Pitch { midi: (12 * (octave + 1)) + pitch_class as u8 }
     }
 }
 
+// TODO something better for accidentals
 #[derive(Clone, Copy)]
 pub enum PitchClass {
     C = 0,

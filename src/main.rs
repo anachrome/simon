@@ -1,32 +1,17 @@
 mod note;
 
 use std::sync::mpsc::{channel, Receiver};
-use std::thread::sleep;
-use std::time::Duration;
+
+use rand::Rng;
 
 use midly::live::LiveEvent;
 use midly::MidiMessage;
 
-// big todos
-// single note key of C game w/ cadence + multiple octaves
-// use midly for sending (get rid of play_note closure)
-// more robust error handling
-
-trait Playable {
-    fn play_on(conn: midir::MidiOutputConnection);
-}
-
-trait Game<'a> {
-    type Phrase: Playable;
-
-    fn filename() -> &'a str;
-    // TODO: introductory + intermission cadences etc.
-    fn gen_phrase() -> Self::Phrase;
-    fn recv_phrase(receiver: Receiver<(midly::num::u4, midly::MidiMessage)>) -> Self::Phrase;
-    fn check_guess(phrase: Self::Phrase, guess: Self::Phrase) -> bool;
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    //
+    // set up midi
+    //
+
     let mut midi_in = midir::MidiInput::new("midir test input")?;
     let midi_out = midir::MidiOutput::new("midir test output")?;
 
@@ -62,68 +47,159 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }, ())?;
 
-    {
-        let mut play_note = |note: u8, duration: u64| {
-            const NOTE_ON_MSG: u8 = 0x90;
-            const NOTE_OFF_MSG: u8 = 0x80;
-            const VELOCITY: u8 = 0x32;
-            // We're ignoring errors in here
-            let _ = conn_out.send(&[NOTE_ON_MSG, note, VELOCITY]);
-            sleep(Duration::from_millis(duration * 150));
-            let _ = conn_out.send(&[NOTE_OFF_MSG, note, VELOCITY]);
-        };
+    //
+    // main loop
+    //
 
-        let read_note = || {
-            loop {
-                let (midi_channel, midi_message) = receiver.recv().unwrap();
+    let game = SingleNoteGame {
+        min_octave: 3,
+        max_octave: 5,
+    };
 
-                println!("{:?}, received: {:?}", midi_channel, midi_message);
-                match midi_message {
-                    MidiMessage::NoteOn { key, vel } if vel > 0 => return key,
-                    _ => continue,
-                }
-            }
-        };
+    // TODO: fetch from game
+    let tonic = note::Pitch::new(note::PitchClass::C, 4);
 
-        const TRIES: u64 = 0u64;
-        let mut successes = 0;
-        for _ in 0..TRIES {
+    note::Note {
+        pitch: tonic,
+        velocity: 64.into(),
+        duration: std::time::Duration::from_millis(500u64),
+    }.play_on(&mut conn_out);
 
-            let note = note::Pitch {
-                pitch_class: rand::random(),
-                octave: 4,
-            };
 
-            play_note(note.midi(), 4);
-
-            while let Ok(_) = receiver.try_recv() {
-                // ignore any keys pressed before/during the phrase was played
-            }
-
-            let guess = read_note();
-            if u8::from(guess) == note.midi() {
-                successes += 1;
-            }
-
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-
-        let home_dir = home::home_dir().ok_or("cannot find home directory")?;
-        let stats_dir = home_dir.join(".simon");
-        std::fs::create_dir_all(&stats_dir)?;
-        let stats_file = std::fs::OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(stats_dir.join("log.csv"))?;
-        let mut csv_writer = csv::Writer::from_writer(stats_file);
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        csv_writer.serialize(&[timestamp, TRIES, successes])?;
-
-        println!("{} / {}", successes, TRIES);
+    while read_single_pitch(&receiver) != tonic {
+        // wait for the user to acknowledge the tonic
     }
 
+    // TODO: play cadence or other sort of introductory material here
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    const TRIES: u64 = 20u64;
+    let mut successes = 0;
+    for _ in 0..TRIES {
+
+        let phrase = game.gen_phrase();
+        phrase.play_on(&mut conn_out);
+
+        while let Ok(_) = receiver.try_recv() {
+            // ignore any keys pressed before/while the phrase is played
+        }
+
+        if SingleNoteGame::check_guess(phrase, &receiver) {
+            successes += 1;
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+
+    //
+    // write out stats
+    //
+
+    let home_dir = home::home_dir().ok_or("cannot find home directory")?;
+    let stats_dir = home_dir.join(".simon");
+    std::fs::create_dir_all(&stats_dir)?;
+    let stats_file = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(stats_dir.join(game.filename()))?;
+    let mut csv_writer = csv::Writer::from_writer(stats_file);
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    csv_writer.serialize(&[timestamp, TRIES, successes])?;
+
+    println!("{} / {}", successes, TRIES);
+
     Ok(())
+}
+
+trait Playable {
+    fn play_on(&self, conn: &mut midir::MidiOutputConnection);
+}
+
+trait Game {
+    type Phrase: Playable;
+
+    fn filename(&self) -> String;
+    // TODO: introductory + intermission cadences etc.
+    fn gen_phrase(&self) -> Self::Phrase;
+    fn check_guess(phrase: Self::Phrase, receiver: &Receiver<(midly::num::u4, midly::MidiMessage)>) -> bool;
+}
+
+// TODO: generic read phrase
+fn read_single_pitch(receiver: &Receiver<(midly::num::u4, midly::MidiMessage)>) -> note::Pitch {
+    let mut note = None;
+
+    loop {
+        let (midi_channel, midi_message) = receiver.recv().unwrap();
+        println!("{:?}, received: {:?}", midi_channel, midi_message);
+
+        // if note is None, then we just read the first input into note; if note is Some(...), then
+        // we wait until it is released before returning
+        if let Some(note) = note {
+            match midi_message {
+                MidiMessage::NoteOn  { key, vel } if key == note && vel == 0 =>
+                    return note::Pitch{ midi: u8::from(note) },
+                _ => continue,
+            }
+        } else {
+            match midi_message {
+                MidiMessage::NoteOn { key, vel } if vel > 0 =>
+                    note = Some(key),
+                _ => continue,
+            }
+        }
+    }
+}
+
+impl Playable for note::Note {
+    fn play_on(&self, conn: &mut midir::MidiOutputConnection) {
+        let mut on_msg = Vec::new();
+        LiveEvent::Midi {
+            channel: 0u8.into(),
+            message: MidiMessage::NoteOn {
+                key: self.pitch.midi.into(),
+                vel: self.velocity,
+            }
+        }.write(&mut on_msg).unwrap();
+        conn.send(&on_msg).unwrap();
+
+        std::thread::sleep(self.duration);
+
+        let mut off_msg = Vec::new();
+        LiveEvent::Midi {
+            channel: 0u8.into(),
+            message: MidiMessage::NoteOff {
+                key: self.pitch.midi.into(),
+                vel: self.velocity,
+            }
+        }.write(&mut off_msg).unwrap();
+        conn.send(&off_msg).unwrap();
+    }
+}
+
+struct SingleNoteGame {
+    min_octave: u8,
+    max_octave: u8,
+}
+
+impl Game for SingleNoteGame {
+    type Phrase = note::Note;
+
+    fn filename(&self) -> String {
+        format!{"single-note-c-major-{}-octaves.csv", self.max_octave - self.min_octave}
+    }
+
+    fn gen_phrase(&self) -> note::Note {
+        note::Note {
+            pitch: note::Pitch::new(rand::random(), rand::thread_rng().gen_range(self.min_octave .. self.max_octave)),
+            velocity: 64.into(),
+            duration: std::time::Duration::from_millis(500u64),
+        }
+    }
+
+    fn check_guess(phrase: note::Note, receiver: &Receiver<(midly::num::u4, midly::MidiMessage)>) -> bool {
+        phrase.pitch == read_single_pitch(receiver)
+    }
 }
