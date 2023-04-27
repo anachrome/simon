@@ -51,15 +51,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // main loop
     //
 
-    use note::PitchClass::*;
     let game = SingleNoteGame {
-        key: C,
+        key: rand::thread_rng().gen_range(0..13),
         min_octave: 3,
         max_octave: 5,
     };
 
     let tonic = note::Note {
-        pitch: note::Pitch::new(game.key, note::MIDDLE_OCTAVE),
+        pitch: (note::MIDDLE_OCTAVE + game.key).into(),
         velocity: 64.into(),
         duration: std::time::Duration::from_millis(500u64),
     };
@@ -121,7 +120,7 @@ trait Playable {
 trait Game {
     type Phrase: Playable;
 
-    fn key(&self) -> note::PitchClass;
+    fn key(&self) -> &str;
     fn filename(&self) -> String;
     // TODO: introductory + intermission cadences etc.
     fn gen_phrase(&self) -> Self::Phrase;
@@ -129,7 +128,7 @@ trait Game {
 }
 
 // TODO: generic read phrase
-fn read_single_pitch(receiver: &Receiver<(midly::num::u4, midly::MidiMessage)>) -> note::Pitch {
+fn read_single_pitch(receiver: &Receiver<(midly::num::u4, midly::MidiMessage)>) -> midly::num::u7 {
     let mut note = None;
 
     loop {
@@ -141,7 +140,7 @@ fn read_single_pitch(receiver: &Receiver<(midly::num::u4, midly::MidiMessage)>) 
         if let Some(note) = note {
             match midi_message {
                 MidiMessage::NoteOn  { key, vel } if key == note && vel == 0 =>
-                    return note::Pitch{ midi: u8::from(note) },
+                    return note,
                 _ => continue,
             }
         } else {
@@ -160,7 +159,7 @@ impl Playable for note::Note {
         LiveEvent::Midi {
             channel: 0u8.into(),
             message: MidiMessage::NoteOn {
-                key: self.pitch.midi.into(),
+                key: self.pitch,
                 vel: self.velocity,
             }
         }.write(&mut on_msg).unwrap();
@@ -172,7 +171,7 @@ impl Playable for note::Note {
         LiveEvent::Midi {
             channel: 0u8.into(),
             message: MidiMessage::NoteOff {
-                key: self.pitch.midi.into(),
+                key: self.pitch,
                 vel: self.velocity,
             }
         }.write(&mut off_msg).unwrap();
@@ -181,7 +180,7 @@ impl Playable for note::Note {
 }
 
 struct SingleNoteGame {
-    key: note::PitchClass,
+    key: u8,
     min_octave: u8,
     max_octave: u8,
 }
@@ -189,8 +188,8 @@ struct SingleNoteGame {
 impl Game for SingleNoteGame {
     type Phrase = note::Note;
 
-    fn key(&self) -> note::PitchClass {
-        self.key
+    fn key(&self) -> &str {
+        note::keys[self.key as usize]
     }
 
     fn filename(&self) -> String {
@@ -199,7 +198,8 @@ impl Game for SingleNoteGame {
 
     fn gen_phrase(&self) -> note::Note {
         note::Note {
-            pitch: note::Pitch::new(rand::random(), rand::thread_rng().gen_range(self.min_octave .. self.max_octave)),
+            //pitch: note::Pitch::new(rand::random(), rand::thread_rng().gen_range(self.min_octave .. self.max_octave)),
+            pitch: note::random_pitch(self.key, self.min_octave, self.max_octave).into(),
             velocity: 64.into(),
             duration: std::time::Duration::from_millis(500u64),
         }
