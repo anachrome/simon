@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let tonic = note::Note {
-        pitch: (note::MIDDLE_OCTAVE + game.key).into(),
+        pitch: (note::MIDDLE_C + game.key).into(),
         velocity: 64.into(),
         duration: std::time::Duration::from_millis(500u64),
     };
@@ -193,7 +193,7 @@ impl Game for SingleNoteGame {
     }
 
     fn filename(&self) -> String {
-        format!{"single-note-{:?}-major-{}-octaves.csv", self.key, self.max_octave - self.min_octave}
+        format!{"single-note-{}-major-{}-octaves.csv", note::keys[self.key as usize], self.max_octave - self.min_octave}
     }
 
     fn gen_phrase(&self) -> note::Note {

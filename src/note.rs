@@ -31,10 +31,10 @@ pub fn random_pitch(key: u8, lower_octave: u8, upper_octave: u8) -> u8 {
 
     let mut rng = rand::thread_rng();
     let mut notes = Vec::new();
-
-    for octave in lower_octave..upper_octave + 1 {
-        notes.extend(major_scale_intervals.iter().map(|n| octave + key + n))
+    for octave in lower_octave..upper_octave {
+        notes.extend(major_scale_intervals.iter().map(|n| (12 * (octave + 1)) + key + n))
     }
+    notes.push((12 * upper_octave) + key);
 
     *notes.choose(&mut rng).unwrap()
 }
