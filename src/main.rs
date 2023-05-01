@@ -72,6 +72,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO: play cadence or other sort of introductory material here
     std::thread::sleep(std::time::Duration::from_millis(500));
 
+    let tonic_chord = note::Chord {
+        pitches: [0, 4, 7, 12].iter()
+                              .map(|chord_tone| (chord_tone + note::MIDDLE_C + game.key).into())
+                              .collect(),
+        velocity: 64.into(),
+        duration: std::time::Duration::from_millis(500u64),
+    };
+
     const TRIES: u64 = 20u64;
     let mut successes = 0;
     for _ in 0..TRIES {
