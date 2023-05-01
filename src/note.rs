@@ -24,6 +24,12 @@ pub struct Note {
     pub duration: std::time::Duration,
 }
 
+pub struct Chord {
+    pub pitches: std::vec::Vec<midly::num::u7>,
+    pub velocity: midly::num::u7,
+    pub duration: std::time::Duration,
+}
+
 pub fn random_pitch(key: u8, lower_octave: u8, upper_octave: u8) -> u8 {
     // TODO: flesh out the types enough to get rid of these asserts
     assert!(key <= 12);

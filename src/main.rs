@@ -179,6 +179,36 @@ impl Playable for note::Note {
     }
 }
 
+impl Playable for note::Chord {
+    fn play_on(&self, conn: &mut midir::MidiOutputConnection) {
+        for pitch in &self.pitches {
+            let mut on_msg = Vec::new();
+            LiveEvent::Midi {
+                channel: 0u8.into(),
+                message: MidiMessage::NoteOn {
+                    key: *pitch,
+                    vel: self.velocity,
+                }
+            }.write(&mut on_msg).unwrap();
+            conn.send(&on_msg).unwrap();
+        }
+
+        std::thread::sleep(self.duration);
+
+        for pitch in &self.pitches {
+            let mut off_msg = Vec::new();
+            LiveEvent::Midi {
+                channel: 0u8.into(),
+                message: MidiMessage::NoteOff {
+                    key: *pitch,
+                    vel: self.velocity,
+                }
+            }.write(&mut off_msg).unwrap();
+            conn.send(&off_msg).unwrap();
+        }
+    }
+}
+
 struct SingleNoteGame {
     key: u8,
     min_octave: u8,
