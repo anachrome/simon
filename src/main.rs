@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
 
     let game = SingleNoteGame {
-        key: rand::thread_rng().gen_range(0..13),
+        key: rand::thread_rng().gen_range(0..12),
         min_octave: 3,
         max_octave: 5,
     };
