@@ -79,6 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         velocity: 64.into(),
         duration: std::time::Duration::from_millis(500u64),
     };
+    tonic_chord.play_on(&mut conn_out);
 
     const TRIES: u64 = 20u64;
     let mut successes = 0;
