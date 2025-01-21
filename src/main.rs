@@ -4,6 +4,8 @@ use std::sync::mpsc::{channel, Receiver};
 
 use rand::Rng;
 
+use serde_derive::Serialize;
+
 use midly::live::LiveEvent;
 use midly::MidiMessage;
 
@@ -118,25 +120,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     dominant_chord.play_on(&mut conn_out);
     tonic_chord.play_on(&mut conn_out);
 
-    //
-    // write out stats
-    //
+    println!("{} / {}", successes, TRIES);
+    log_stats(&game.filename(), Stats{ tries: TRIES, successes: successes })
+}
 
+#[derive(Debug, Clone, Copy, Serialize)]
+struct Stats {
+    tries: u64,
+    successes: u64,
+}
+
+fn log_stats(filename: &str, stats: Stats) -> Result<(), Box<dyn std::error::Error>> {
     let home_dir = home::home_dir().ok_or("cannot find home directory")?;
     let stats_dir = home_dir.join(".simon");
     std::fs::create_dir_all(&stats_dir)?;
     let stats_file = std::fs::OpenOptions::new()
         .append(true)
         .create(true)
-        .open(stats_dir.join(game.filename()))?;
+        .open(stats_dir.join(filename))?;
     let mut csv_writer = csv::Writer::from_writer(stats_file);
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    csv_writer.serialize(&[timestamp, TRIES, successes])?;
-
-    println!("{} / {}", successes, TRIES);
+    csv_writer.serialize((timestamp, stats))?;
 
     Ok(())
 }

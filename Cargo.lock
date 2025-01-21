@@ -395,6 +395,8 @@ dependencies = [
  "midir",
  "midly",
  "rand",
+ "serde",
+ "serde_derive",
 ]
 
 [[package]]
