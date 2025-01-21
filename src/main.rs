@@ -72,43 +72,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("pitch is not tonic");
         // wait for the user to acknowledge the tonic
     }
-
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let dominant_chord = note::Chord {
-        pitches: [-5i8, 2, 5, 11].iter()
-                              .map(|chord_tone| ((chord_tone + note::MIDDLE_C as i8 + game.key as i8) as u8).into())
-                              .collect(),
-        velocity: 64.into(),
-        duration: std::time::Duration::from_millis(750u64),
-    };
-    let tonic_chord = note::Chord {
-        pitches: [0, 4, 7, 12].iter()
-                              .map(|chord_tone| (chord_tone + note::MIDDLE_C + game.key).into())
-                              .collect(),
-        velocity: 64.into(),
-        duration: std::time::Duration::from_millis(750u64),
-    };
-    dominant_chord.play_on(&mut conn_out);
-    tonic_chord.play_on(&mut conn_out);
-
+    play_cadence(game.key, &mut conn_out);
     std::thread::sleep(std::time::Duration::from_millis(250u64));
 
     const TRIES: u64 = 20u64;
     let mut successes = 0;
     for _ in 0..TRIES {
 
-        let phrase = game.gen_phrase();
-        phrase.play_on(&mut conn_out);
+        let secret_note = note::Note {
+            //pitch: note::Pitch::new(rand::random(), rand::thread_rng().gen_range(self.min_octave .. self.max_octave)),
+            pitch: note::random_pitch(game.key, game.min_octave, game.max_octave).into(),
+            velocity: 64.into(),
+            duration: std::time::Duration::from_millis(500u64),
+        };
+
+        secret_note.play_on(&mut conn_out);
 
         while let Ok(_) = receiver.try_recv() {
             // ignore any keys pressed before/while the phrase is played
         }
 
-        if SingleNoteGame::check_guess(phrase, &receiver) {
+        if secret_note.pitch == read_single_pitch(&receiver) {
             successes += 1;
         } else {
-            while !SingleNoteGame::check_guess(phrase, &receiver) {
+            while secret_note.pitch != read_single_pitch(&receiver) {
                 // do not progress to the next phrase until the right note is played
                 println!("checking one extra guess");
             }
@@ -117,11 +106,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
 
-    dominant_chord.play_on(&mut conn_out);
-    tonic_chord.play_on(&mut conn_out);
+    play_cadence(game.key, &mut conn_out);
 
     println!("{} / {}", successes, TRIES);
     log_stats(&game.filename(), Stats{ tries: TRIES, successes: successes })
+}
+
+fn play_cadence(key: u8, conn: &mut midir::MidiOutputConnection) {
+    let dominant_chord = note::Chord {
+        pitches: [-5i8, 2, 5, 11].iter()
+                              .map(|chord_tone| ((chord_tone + note::MIDDLE_C as i8 + key as i8) as u8).into())
+                              .collect(),
+        velocity: 64.into(),
+        duration: std::time::Duration::from_millis(750u64),
+    };
+    let tonic_chord = note::Chord {
+        pitches: [0, 4, 7, 12].iter()
+                              .map(|chord_tone| (chord_tone + note::MIDDLE_C + key).into())
+                              .collect(),
+        velocity: 64.into(),
+        duration: std::time::Duration::from_millis(750u64),
+    };
+    dominant_chord.play_on(conn);
+    tonic_chord.play_on(conn);
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -156,9 +163,6 @@ trait Game {
     type Phrase: Playable;
 
     fn filename(&self) -> String;
-    // TODO: introductory + intermission cadences etc.
-    fn gen_phrase(&self) -> Self::Phrase;
-    fn check_guess(phrase: Self::Phrase, receiver: &Receiver<(midly::num::u4, midly::MidiMessage)>) -> bool;
 }
 
 // TODO: generic read phrase
@@ -256,18 +260,5 @@ impl Game for SingleNoteGame {
 
     fn filename(&self) -> String {
         format!{"single-note-{}-major-{}-octaves.csv", note::KEYS[self.key as usize], self.max_octave - self.min_octave}
-    }
-
-    fn gen_phrase(&self) -> note::Note {
-        note::Note {
-            //pitch: note::Pitch::new(rand::random(), rand::thread_rng().gen_range(self.min_octave .. self.max_octave)),
-            pitch: note::random_pitch(self.key, self.min_octave, self.max_octave).into(),
-            velocity: 64.into(),
-            duration: std::time::Duration::from_millis(500u64),
-        }
-    }
-
-    fn check_guess(phrase: note::Note, receiver: &Receiver<(midly::num::u4, midly::MidiMessage)>) -> bool {
-        phrase.pitch == read_single_pitch(receiver)
     }
 }
