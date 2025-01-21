@@ -18,12 +18,14 @@ struct Key {
 
 // a simple abstraction over midi events: notes with duration are an easier structure to work with
 // than midi note-on and note-off events
+#[derive(Debug, Clone, Copy)]
 pub struct Note {
     pub pitch: midly::num::u7,
     pub velocity: midly::num::u7,
     pub duration: std::time::Duration,
 }
 
+#[derive(Debug, Clone)]
 pub struct Chord {
     pub pitches: std::vec::Vec<midly::num::u7>,
     pub velocity: midly::num::u7,
@@ -38,15 +40,15 @@ pub fn random_pitch(key: u8, lower_octave: u8, upper_octave: u8) -> u8 {
     let mut rng = rand::thread_rng();
     let mut notes = Vec::new();
     for octave in lower_octave..upper_octave {
-        notes.extend(major_scale_intervals.iter().map(|n| (12 * (octave + 1)) + key + n))
+        notes.extend(MAJOR_SCALE_INTERVALS.iter().map(|n| (12 * (octave + 1)) + key + n))
     }
     notes.push((12 * upper_octave) + key);
 
     *notes.choose(&mut rng).unwrap()
 }
 
-const major_scale_intervals: &[u8] = &[0, 2, 4, 5, 7, 9, 11];
-pub const keys: &[&str] = &["C", "Des", "D", "Es", "E", "F", "Ges", "G", "Aes", "A", "Bes", "B"];
+const MAJOR_SCALE_INTERVALS: &[u8] = &[0, 2, 4, 5, 7, 9, 11];
+pub const KEYS: &[&str] = &["C", "Des", "D", "Es", "E", "F", "Ges", "G", "Aes", "A", "Bes", "B"];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Pitch {

@@ -64,12 +64,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     tonic.play_on(&mut conn_out);
 
+    println!("tonic: {}", tonic.pitch);
 
     while read_single_pitch(&receiver) != tonic.pitch {
+        println!("pitch is not tonic");
         // wait for the user to acknowledge the tonic
     }
 
-    // TODO: play cadence or other sort of introductory material here
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     let dominant_chord = note::Chord {
@@ -104,10 +105,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if SingleNoteGame::check_guess(phrase, &receiver) {
             successes += 1;
+        } else {
+            while !SingleNoteGame::check_guess(phrase, &receiver) {
+                // do not progress to the next phrase until the right note is played
+                println!("checking one extra guess");
+            }
         }
 
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
+
+    dominant_chord.play_on(&mut conn_out);
+    tonic_chord.play_on(&mut conn_out);
 
     //
     // write out stats
@@ -159,6 +168,8 @@ fn read_single_pitch(receiver: &Receiver<(midly::num::u4, midly::MidiMessage)>) 
         if let Some(note) = note {
             match midi_message {
                 MidiMessage::NoteOn  { key, vel } if key == note && vel == 0 =>
+                    return note,
+                MidiMessage::NoteOff  { key, vel: _ } if key == note =>
                     return note,
                 _ => continue,
             }
@@ -238,11 +249,11 @@ impl Game for SingleNoteGame {
     type Phrase = note::Note;
 
     fn key(&self) -> &str {
-        note::keys[self.key as usize]
+        note::KEYS[self.key as usize]
     }
 
     fn filename(&self) -> String {
-        format!{"single-note-{}-major-{}-octaves.csv", note::keys[self.key as usize], self.max_octave - self.min_octave}
+        format!{"single-note-{}-major-{}-octaves.csv", note::KEYS[self.key as usize], self.max_octave - self.min_octave}
     }
 
     fn gen_phrase(&self) -> note::Note {
