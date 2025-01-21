@@ -5,17 +5,6 @@ use rand::distributions::{Distribution, Standard};
 pub const MIDDLE_OCTAVE: u8 = 4;
 pub const MIDDLE_C: u8 = 60;
 
-// struct major key
-// contains tonal center (enharmonic notes merged, because this is a listening test)
-// function that generates a random note, in the key, in some range
-//   (should the range be specified in notes, octaves, ??)
-// function that returns the name of the key (ideally in a filename-friendly format)
-
-// TODO: handle other modes
-struct Key {
-    pub pitch_class: PitchClass,
-}
-
 // a simple abstraction over midi events: notes with duration are an easier structure to work with
 // than midi note-on and note-off events
 #[derive(Debug, Clone, Copy)]
@@ -49,17 +38,6 @@ pub fn random_pitch(key: u8, lower_octave: u8, upper_octave: u8) -> u8 {
 
 const MAJOR_SCALE_INTERVALS: &[u8] = &[0, 2, 4, 5, 7, 9, 11];
 pub const KEYS: &[&str] = &["C", "Des", "D", "Es", "E", "F", "Ges", "G", "Aes", "A", "Bes", "B"];
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Pitch {
-    pub midi: u8
-}
-
-impl Pitch {
-    pub fn new(pitch_class: PitchClass, octave: u8) -> Pitch {
-        Pitch { midi: (12 * (octave + 1)) + pitch_class as u8 }
-    }
-}
 
 // TODO something better for accidentals
 #[derive(Clone, Copy, Debug)]

@@ -53,8 +53,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let game = SingleNoteGame {
         key: rand::thread_rng().gen_range(0..12),
-        min_octave: 3,
-        max_octave: 5,
+        min_octave: note::MIDDLE_OCTAVE - 1,
+        max_octave: note::MIDDLE_OCTAVE + 1,
     };
 
     let tonic = note::Note {
@@ -148,7 +148,6 @@ trait Playable {
 trait Game {
     type Phrase: Playable;
 
-    fn key(&self) -> &str;
     fn filename(&self) -> String;
     // TODO: introductory + intermission cadences etc.
     fn gen_phrase(&self) -> Self::Phrase;
@@ -247,10 +246,6 @@ struct SingleNoteGame {
 
 impl Game for SingleNoteGame {
     type Phrase = note::Note;
-
-    fn key(&self) -> &str {
-        note::KEYS[self.key as usize]
-    }
 
     fn filename(&self) -> String {
         format!{"single-note-{}-major-{}-octaves.csv", note::KEYS[self.key as usize], self.max_octave - self.min_octave}
